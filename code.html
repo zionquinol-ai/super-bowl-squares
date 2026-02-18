@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Super Bowl Squares</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root{
+      --bg1:#1e3c72;
+      --bg2:#2a5298;
+      --gold:#ffd700;
+      --blue1:#00c6ff;
+      --blue2:#0072ff;
+      --green1:#00ff87;
+      --green2:#00c851;
+      --card: rgba(255,255,255,0.12);
+      --text: #ffffff;
+
+      /* Board sizing (desktop) */
+      --cell: 70px;
+      --gap: 10px;
+      --gridpad: 10px;
+
+      --leftcol: 90px;   /* NFC sidebar column width */
+      --wrapgap: 12px;   /* gap between NFC sidebar + grid */
+
+      /* Grid width = 11 cells + 10 gaps + padding L/R */
+      --grid-width: calc(11 * var(--cell) + 10 * var(--gap) + 2 * var(--gridpad));
+      /* Board width = left column + wrap gap + grid width */
+      --board-width: calc(var(--leftcol) + var(--wrapgap) + var(--grid-width));
+
+      /* Unified border style */
+      --panel-border: 3px solid rgba(255,255,255,0.22);
+      --panel-bg: rgba(255,255,255,0.10);
+      --panel-radius: 16px;
+      --panel-shadow: 0 10px 22px rgba(0,0,0,0.18);
+
+      /* ✅ NFC spacing controls */
+      --nfc-rotate: 270deg;
+    }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:"Nunito", sans-serif;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      color: var(--text);
+      text-align:center;
+      padding: 18px 12px 40px;
+    }
+
+    .titleWrap{
+      width: min(var(--board-width), 98vw);
+      margin: 0 auto 0;
+      display: grid;
+      grid-template-columns: var(--leftcol) 1fr;
+      gap: var(--wrapgap);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .titleSpacer{
+      min-width: 0;
+    }
+
+    h1{
+      font-family:"Bangers", cursive;
+      font-size: clamp(42px, 6vw, 64px);
+      letter-spacing: 2px;
+      margin: 12px 0 10px;
+      color: var(--gold);
+      text-shadow: 3px 3px 0 rgba(0,0,0,0.25);
+      text-align: center;
+    }
+
+    /* =======================
+       NFC TOP BAR (fits grid)
+       ======================= */
+    .teamBar{
+      width: min(var(--board-width), 98vw);
+      margin: 0 auto 14px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .teamCard{
+      width: var(--grid-width);
+      margin-left: calc(var(--leftcol) + var(--wrapgap));
+
+      background: var(--panel-bg);
+      border: var(--panel-border);
+      border-radius: var(--panel-radius);
+      padding: 10px 12px;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 10px;
+
+      box-shadow: var(--panel-shadow);
+      box-sizing: border-box;
+    }
+
+    .teamCard img{
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.25));
+      background: rgba(255,255,255,0.10);
+      border-radius: 12px;
+      padding: 6px;
+      flex: 0 0 auto;
+    }
+
+    .teamMeta{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      text-align:left;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .teamMeta .label{
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      opacity: 0.85;
+    }
+
+    .teamMeta .name{
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 520px;
+    }
+
+    /* =======================
+       BOARD: AFC LEFT + GRID
+       ======================= */
+    .boardWrap{
+      width: min(var(--board-width), 98vw);
+      margin: 0 auto;
+      display:grid;
+      grid-template-columns: var(--leftcol) 1fr;
+      gap: var(--wrapgap);
+      align-items:stretch;
+      justify-content:center;
+    }
+
+    .nfcLeft{
+      background: var(--panel-bg);
+      border: var(--panel-border);
+      border-radius: var(--panel-radius);
+      box-shadow: var(--panel-shadow);
+      padding: 10px;
+      box-sizing: border-box;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* NFC inner: logo beside name (flex), then rotate whole block for sidebar */
+    .nfcSideInner{
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transform: rotate(var(--nfc-rotate));
+      transform-origin: center;
+      white-space: nowrap;
+      will-change: transform;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .nfcText{
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .nfcText .label{
+      font-size: 12px;
+      font-weight: 900;
+      opacity: 0.85;
+      letter-spacing: 0.6px;
+    }
+
+    .nfcText .name{
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    /* Logo beside team name, same size as AFC (teamCard img) */
+    .nfcLogo{
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.25));
+      background: rgba(255,255,255,0.10);
+      border-radius: 12px;
+      padding: 6px;
+      flex-shrink: 0;
+      /* Sharper rendering when scaled/rotated in sidebar */
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+
+    /* Grid: 11x11 (corner + top headers + left headers + 10x10 playable) */
+    #grid{
+      width: calc(11 * var(--cell) + 10 * var(--gap) + 2 * var(--gridpad));
+      display:grid;
+      grid-template-columns: repeat(11, var(--cell));
+      grid-template-rows: repeat(11, var(--cell));
+      gap: var(--gap);
+      justify-content:center;
+      user-select:none;
+      padding: var(--gridpad);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.07);
+      border: var(--panel-border);
+      box-shadow: 0 14px 30px rgba(0,0,0,0.18);
+      box-sizing: border-box;
+    }
+
+    /* White header cells for numbers (top row + left column) */
+    .headerCell{
+      width: var(--cell);
+      height: var(--cell);
+      border-radius: 14px;
+      background: #ffffff;
+      color: #111111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-sizing: border-box;
+      pointer-events: none;
+    }
+
+    .gridCorner{
+      background: rgba(255,255,255,0.05);
+      border-radius: 14px;
+    }
+
+    .square{
+      width: var(--cell);
+      height: var(--cell);
+      border-radius: 14px;
+      background: linear-gradient(145deg, var(--blue1), var(--blue2));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 900;
+      font-size: 11px;
+      color:#071521;
+      cursor:pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+      transition: transform 0.12s ease, filter 0.12s ease;
+      padding: 6px;
+      text-align:center;
+      line-height: 1.1;
+      overflow:hidden;
+      box-sizing: border-box;
+    }
+
+    .square:hover{
+      transform: translateY(-2px) scale(1.04);
+      filter: brightness(1.02);
+    }
+
+    .square.reserved{
+      background: linear-gradient(145deg, var(--green1), var(--green2));
+      cursor: not-allowed;
+    }
+
+    /* =======================
+       CONTROLS (fit grid)
+       ======================= */
+    .controls{
+      width: min(var(--board-width), 98vw);
+      margin: 14px auto 0;
+      display:flex;
+      justify-content:center;
+    }
+
+    .controlsInner{
+      width: var(--grid-width);
+      margin-left: calc(var(--leftcol) + var(--wrapgap));
+
+      background: var(--card);
+      border: var(--panel-border);
+      border-radius: var(--panel-radius);
+      padding: 12px 14px;
+
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      gap: 10px;
+
+      box-shadow: var(--panel-shadow);
+      box-sizing: border-box;
+    }
+
+    input, button, select{
+      border:none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      outline:none;
+    }
+
+    input{ width: 200px; }
+
+    button{
+      background: var(--gold);
+      color:#1b1b1b;
+      font-weight: 900;
+      cursor:pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+
+    button:hover{
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+    }
+
+    button.secondary{
+      background: rgba(255,255,255,0.18);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.22);
+    }
+
+    button.resetBtn{
+      background: #c0392b;
+      color: white;
+      border: 1px solid #a93226;
+    }
+
+    button.resetBtn:hover{
+      background: #a93226;
+      filter: brightness(1.05);
+    }
+
+    .adminBadge{
+      display:none;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(0,255,135,0.18);
+      border: 1px solid rgba(0,255,135,0.35);
+      font-weight: 900;
+      color: #bfffe1;
+    }
+
+    /* =======================
+       ADMIN PANEL (fit grid)
+       ======================= */
+    .adminPanel{
+      display:none;
+      width: min(var(--board-width), 98vw);
+      margin: 14px auto 0;
+      justify-content:center;
+    }
+
+    .adminPanelInner{
+      width: var(--grid-width);
+      margin-left: calc(var(--leftcol) + var(--wrapgap));
+
+      background: var(--panel-bg);
+      border: var(--panel-border);
+      border-radius: var(--panel-radius);
+      padding: 12px;
+      text-align:left;
+
+      box-shadow: var(--panel-shadow);
+      box-sizing: border-box;
+    }
+
+    .adminGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .adminCard{
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .adminCard h3{
+      margin: 0 0 10px;
+      font-size: 14px;
+      opacity: 0.95;
+    }
+
+    .numberGridWrap{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .numberLabel{
+      font-size: 11px;
+      opacity: 0.9;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .numberInputRow{
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .numberInputRow input{
+      width: 36px;
+      text-align: center;
+      padding: 6px 4px;
+    }
+
+    .reservationsTableWrap{
+      max-height: 240px;
+      overflow: auto;
+      margin-top: 8px;
+    }
+
+    .reservationsTable{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .reservationsTable th,
+    .reservationsTable td{
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .reservationsTable th{
+      font-weight: 900;
+      opacity: 0.95;
+      position: sticky;
+      top: 0;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .reservationsTable tbody tr{
+      cursor: pointer;
+    }
+
+    .reservationsTable tbody tr:hover{
+      background: rgba(255,255,255,0.1);
+    }
+
+    .reservationsEmpty{
+      padding: 16px;
+      text-align: center;
+      opacity: 0.7;
+      font-size: 13px;
+      display: none;
+    }
+
+    .reservationsEmpty.visible{
+      display: block;
+    }
+
+    select{
+      width: 100%;
+      background: rgba(255,255,255,0.9);
+    }
+
+    /* =======================
+       MODAL
+       ======================= */
+    .modalOverlay{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,0.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 16px;
+      z-index: 9999;
+    }
+
+    .modal{
+      width: min(420px, 95vw);
+      background: white;
+      color: #111;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+      text-align:left;
+      position: relative;
+    }
+
+    .modal h3{
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .closeX{
+      position:absolute;
+      top: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid #e9e9e9;
+      background: #f7f7f7;
+      color: #222;
+      font-weight: 900;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      line-height: 1;
+    }
+
+    .row{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    label{
+      font-size: 12px;
+      font-weight: 900;
+      opacity: 0.8;
+    }
+
+    .modal input{
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #e6e6e6;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .modalActions{
+      display:flex;
+      gap: 10px;
+      justify-content:flex-end;
+      margin-top: 12px;
+    }
+
+    .hint{
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: 6px;
+    }
+
+    /* =======================
+       MOBILE
+       ======================= */
+    @media (max-width: 860px){
+      :root{
+        --cell: 56px;
+        --gap: 8px;
+        --gridpad: 10px;
+        --leftcol: 90px;
+        --wrapgap: 12px;
+      }
+
+      .teamCard{
+        width: min(var(--grid-width), 98vw);
+        margin-left: 0;
+      }
+
+      .titleWrap{
+        grid-template-columns: 1fr;
+      }
+
+      .titleSpacer{
+        display: none;
+      }
+
+      .boardWrap{
+        grid-template-columns: 1fr;
+      }
+
+      .controlsInner,
+      .adminPanelInner{
+        width: min(var(--grid-width), 98vw);
+        margin-left: 0;
+      }
+
+      .adminGrid{
+        grid-template-columns: 1fr;
+      }
+
+      #grid{
+        width: min(var(--grid-width), 98vw);
+      }
+
+      /* On mobile: NFC no rotation, logo beside name */
+      .nfcSideInner{
+        transform: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="titleWrap">
+    <div class="titleSpacer"></div>
+    <h1>Super Bowl Squares</h1>
+  </div>
+
+  <!-- NFC at the TOP -->
+  <div class="teamBar">
+    <div class="teamCard">
+      <img id="nfcLogo" class="nfcLogo" alt="NFC Team Logo" />
+      <div class="teamMeta">
+        <div class="label">NFC</div>
+        <div id="nfcName" class="name">NFC Team</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AFC + GRID -->
+  <div class="boardWrap">
+    <div class="nfcLeft">
+      <div class="nfcSideInner">
+        <img id="afcLogo" class="nfcLogo" alt="AFC Team Logo" />
+        <div class="nfcText">
+          <div class="label">AFC</div>
+          <div id="afcName" class="name">AFC Team</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="grid" aria-label="Super Bowl squares grid"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="controlsInner">
+      <span id="adminBadge" class="adminBadge">ADMIN MODE</span>
+      <input type="password" id="adminPass" placeholder="Admin password" />
+      <button id="adminBtn">Admin Login</button>
+      <button id="adminLogoutBtn" class="secondary" style="display:none;">Logout</button>
+      <button id="resetBtn" type="button" class="resetBtn" style="display:none;">Reset All (Admin)</button>
+    </div>
+  </div>
+
+  <!-- Admin team settings -->
+  <div id="adminPanel" class="adminPanel">
+    <div class="adminPanelInner">
+      <h2 style="margin:0 0 10px;">Admin Settings</h2>
+      <div class="adminGrid">
+        <div class="adminCard">
+          <h3>Select AFC Team</h3>
+          <select id="afcSelect"></select>
+        </div>
+
+        <div class="adminCard">
+          <h3>Select NFC Team</h3>
+          <select id="nfcSelect"></select>
+        </div>
+      </div>
+
+      <div class="adminCard" style="margin-top:14px;">
+        <h3>Grid Numbers</h3>
+        <div class="numberGridWrap">
+          <div>
+            <label class="numberLabel">Top row (NFC):</label>
+            <div id="topNumberInputs" class="numberInputRow"></div>
+          </div>
+          <div>
+            <label class="numberLabel">Left column (AFC):</label>
+            <div id="leftNumberInputs" class="numberInputRow"></div>
+          </div>
+        </div>
+        <button id="randomizeNumbersBtn" class="secondary" style="margin-top:10px;">Randomize Numbers</button>
+      </div>
+
+      <div class="adminCard" style="margin-top:14px;">
+        <h3>Reservations</h3>
+        <div id="reservationsTableWrap" class="reservationsTableWrap">
+          <table id="reservationsTable" class="reservationsTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Squares</th>
+                <th># of Squares Purchased</th>
+              </tr>
+            </thead>
+            <tbody id="reservationsTableBody"></tbody>
+          </table>
+          <div id="reservationsEmpty" class="reservationsEmpty">No reservations yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete player modal (admin) -->
+  <div id="playerModalOverlay" class="modalOverlay" style="display:none;">
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="closeX" id="playerModalCloseX" aria-label="Close">✕</button>
+      <h3>Player Reservation</h3>
+      <div id="playerModalContent" style="margin:12px 0; line-height:1.5;"></div>
+      <div class="modalActions">
+        <button id="playerModalCancel" type="button" class="secondary">Cancel</button>
+        <button id="playerModalDelete" type="button" class="resetBtn">Delete Player</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset disclaimer modal -->
+  <div id="resetModalOverlay" class="modalOverlay" style="display:none;">
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="closeX" id="resetCloseXBtn" aria-label="Close">✕</button>
+      <h3>Reset All Squares</h3>
+      <p style="margin:12px 0; line-height:1.5;">
+        If you continue with this request, it will <strong>erase the entire board</strong>.<br><br>
+        All reservations will be permanently removed. Every square will be cleared and available again. This cannot be undone.
+      </p>
+      <div class="modalActions">
+        <button id="resetCancelBtn" class="secondary">Cancel</button>
+        <button id="resetConfirmBtn" class="resetBtn">Continue — Erase Board</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modalOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="closeX" id="closeXBtn" aria-label="Close">✕</button>
+      <h3 id="modalTitle">Reserve Square</h3>
+
+      <div class="row">
+        <div>
+          <label for="nameInput">Name</label>
+          <input id="nameInput" placeholder="Your name" autocomplete="name" />
+        </div>
+
+        <div>
+          <label for="phoneInput">Phone (10 digits)</label>
+          <input id="phoneInput"
+                 placeholder="5555555555"
+                 inputmode="numeric"
+                 autocomplete="tel"
+                 maxlength="10" />
+          <div class="hint">Digits only. 10 max.</div>
+        </div>
+      </div>
+
+      <div class="modalActions">
+        <button id="cancelBtn" class="secondary">Cancel</button>
+        <button id="submitBtn">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_PASSWORD = "admin123";
+
+    const AFC_TEAMS = [
+      { key: "ravens", name: "Baltimore Ravens", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png" },
+      { key: "bills", name: "Buffalo Bills", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" },
+      { key: "bengals", name: "Cincinnati Bengals", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png" },
+      { key: "browns", name: "Cleveland Browns", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png" },
+      { key: "broncos", name: "Denver Broncos", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/den.png" },
+      { key: "texans", name: "Houston Texans", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png" },
+      { key: "colts", name: "Indianapolis Colts", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png" },
+      { key: "jaguars", name: "Jacksonville Jaguars", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png" },
+      { key: "chiefs", name: "Kansas City Chiefs", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png" },
+      { key: "raiders", name: "Las Vegas Raiders", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png" },
+      { key: "chargers", name: "Los Angeles Chargers", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png" },
+      { key: "dolphins", name: "Miami Dolphins", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png" },
+      { key: "patriots", name: "New England Patriots", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png" },
+      { key: "jets", name: "New York Jets", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png" },
+      { key: "steelers", name: "Pittsburgh Steelers", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png" },
+      { key: "titans", name: "Tennessee Titans", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png" }
+    ];
+
+    const NFC_TEAMS = [
+      { key: "49ers", name: "San Francisco 49ers", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" },
+      { key: "cardinals", name: "Arizona Cardinals", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png" },
+      { key: "falcons", name: "Atlanta Falcons", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png" },
+      { key: "panthers", name: "Carolina Panthers", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/car.png" },
+      { key: "bears", name: "Chicago Bears", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png" },
+      { key: "cowboys", name: "Dallas Cowboys", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png" },
+      { key: "lions", name: "Detroit Lions", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/det.png" },
+      { key: "packers", name: "Green Bay Packers", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png" },
+      { key: "rams", name: "Los Angeles Rams", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png" },
+      { key: "vikings", name: "Minnesota Vikings", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/min.png" },
+      { key: "saints", name: "New Orleans Saints", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/no.png" },
+      { key: "giants", name: "New York Giants", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png" },
+      { key: "eagles", name: "Philadelphia Eagles", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png" },
+      { key: "seahawks", name: "Seattle Seahawks", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png" },
+      { key: "buccaneers", name: "Tampa Bay Buccaneers", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png" },
+      { key: "commanders", name: "Washington Commanders", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png" }
+    ];
+
+    let isAdmin = false;
+    let selectedIndex = null;
+    const reservations = {};
+
+    let afcTeamKey = "chiefs";
+    let nfcTeamKey = "eagles";
+
+    let topNumbers = ["0","1","2","3","4","5","6","7","8","9"];
+    let leftNumbers = ["0","1","2","3","4","5","6","7","8","9"];
+
+    const gridEl = document.getElementById("grid");
+    const modalOverlay = document.getElementById("modalOverlay");
+    const nameInput = document.getElementById("nameInput");
+    const phoneInput = document.getElementById("phoneInput");
+
+    const adminPassEl = document.getElementById("adminPass");
+    const adminBtn = document.getElementById("adminBtn");
+    const adminLogoutBtn = document.getElementById("adminLogoutBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const adminBadge = document.getElementById("adminBadge");
+
+    const cancelBtn = document.getElementById("cancelBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const closeXBtn = document.getElementById("closeXBtn");
+
+    const adminPanel = document.getElementById("adminPanel");
+    const nfcSelect = document.getElementById("nfcSelect");
+    const afcSelect = document.getElementById("afcSelect");
+    const topNumberInputs = document.getElementById("topNumberInputs");
+    const leftNumberInputs = document.getElementById("leftNumberInputs");
+
+    const nfcLogo = document.getElementById("nfcLogo");
+    const nfcName = document.getElementById("nfcName");
+    const afcLogo = document.getElementById("afcLogo");
+    const afcName = document.getElementById("afcName");
+
+    function safeConfetti() {
+      if (typeof confetti === "function") {
+        confetti({ particleCount: 160, spread: 75, origin: { y: 0.65 } });
+      }
+    }
+
+    function openModal(index) {
+      selectedIndex = index;
+      nameInput.value = "";
+      phoneInput.value = "";
+      modalOverlay.style.display = "flex";
+      setTimeout(() => nameInput.focus(), 0);
+    }
+
+    function closeModal() {
+      selectedIndex = null;
+      modalOverlay.style.display = "none";
+    }
+
+    function enforcePhoneDigitsMax10() {
+      let digits = phoneInput.value.replace(/\D/g, "");
+      if (digits.length > 10) digits = digits.slice(0, 10);
+      phoneInput.value = digits;
+    }
+
+    function getTeamByKey(key, conference) {
+      const list = conference === "nfc" ? NFC_TEAMS : AFC_TEAMS;
+      return list.find(t => t.key === key) || list[0];
+    }
+
+    function renderTeams(){
+      const afc = getTeamByKey(afcTeamKey, "afc");
+      const nfc = getTeamByKey(nfcTeamKey, "nfc");
+
+      nfcLogo.src = nfc.logo;
+      nfcLogo.srcset = nfc.logo + " 2x";
+      nfcName.textContent = nfc.name;
+
+      afcLogo.src = afc.logo;
+      afcName.textContent = afc.name;
+
+      afcSelect.value = afcTeamKey;
+      nfcSelect.value = nfcTeamKey;
+    }
+
+    function renderSquare(index) {
+      const square = gridEl.querySelector(`[data-index="${index}"]`);
+      if (!square) return;
+
+      const data = reservations[index];
+      if (data) {
+        square.classList.add("reserved");
+        square.textContent = data.name;
+      } else {
+        square.classList.remove("reserved");
+        square.textContent = "";
+      }
+    }
+
+    function renderAllSquares() {
+      for (let i = 0; i < 100; i++) renderSquare(i);
+    }
+
+    function setAdminUI(on) {
+      isAdmin = on;
+      adminBadge.style.display = on ? "inline-block" : "none";
+      adminLogoutBtn.style.display = on ? "inline-block" : "none";
+      resetBtn.style.display = on ? "inline-block" : "none";
+      adminPanel.style.display = on ? "flex" : "none";
+      if (on && typeof renderReservationsTable === "function") renderReservationsTable();
+
+      adminBtn.textContent = on ? "Admin Logged In" : "Admin Login";
+      adminBtn.disabled = on;
+      adminPassEl.disabled = on;
+      if (!on) adminPassEl.value = "";
+    }
+
+    function buildGrid() {
+      gridEl.innerHTML = "";
+
+      // Corner (empty)
+      const corner = document.createElement("div");
+      corner.className = "gridCorner";
+      corner.style.gridColumn = "1";
+      corner.style.gridRow = "1";
+      gridEl.appendChild(corner);
+
+      // Top row: numbers 0-9 (NFC)
+      for (let c = 0; c < 10; c++) {
+        const cell = document.createElement("div");
+        cell.className = "headerCell";
+        cell.dataset.type = "top";
+        cell.dataset.idx = String(c);
+        cell.textContent = topNumbers[c];
+        cell.style.gridColumn = String(c + 2);
+        cell.style.gridRow = "1";
+        gridEl.appendChild(cell);
+      }
+
+      // Left column: numbers 0-9 (AFC)
+      for (let r = 0; r < 10; r++) {
+        const cell = document.createElement("div");
+        cell.className = "headerCell";
+        cell.dataset.type = "left";
+        cell.dataset.idx = String(r);
+        cell.textContent = leftNumbers[r];
+        cell.style.gridColumn = "1";
+        cell.style.gridRow = String(r + 2);
+        gridEl.appendChild(cell);
+      }
+
+      // Playable squares (10x10)
+      for (let i = 0; i < 100; i++) {
+        const div = document.createElement("div");
+        div.className = "square";
+        div.dataset.index = String(i);
+        const row = Math.floor(i / 10) + 2;
+        const col = (i % 10) + 2;
+        div.style.gridRow = String(row);
+        div.style.gridColumn = String(col);
+
+        div.addEventListener("click", () => {
+          const idx = Number(div.dataset.index);
+
+          if (reservations[idx]) {
+            if (isAdmin) {
+              const info = reservations[idx];
+              const ok = confirm(`Delete reservation?\n\nName: ${info.name}\nPhone: ${info.phone}`);
+              if (ok) {
+                delete reservations[idx];
+                renderSquare(idx);
+                if (typeof renderReservationsTable === "function") renderReservationsTable();
+              }
+            } else {
+              alert("This square is already reserved.");
+            }
+            return;
+          }
+
+          openModal(idx);
+        });
+
+        gridEl.appendChild(div);
+      }
+
+      renderAllSquares();
+    }
+
+    function renderHeaderNumbers() {
+      gridEl.querySelectorAll(".headerCell").forEach(cell => {
+        const type = cell.dataset.type;
+        const idx = Number(cell.dataset.idx);
+        cell.textContent = type === "top" ? topNumbers[idx] : leftNumbers[idx];
+      });
+    }
+
+    function randomizeNumbers() {
+      const arr = [0,1,2,3,4,5,6,7,8,9];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      topNumbers = arr.map(String);
+      const arr2 = [0,1,2,3,4,5,6,7,8,9];
+      for (let i = arr2.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr2[i], arr2[j]] = [arr2[j], arr2[i]];
+      }
+      leftNumbers = arr2.map(String);
+      renderHeaderNumbers();
+      syncAdminNumberInputs();
+    }
+
+    function syncAdminNumberInputs() {
+      topNumberInputs.querySelectorAll("input").forEach((inp, i) => { inp.value = topNumbers[i]; });
+      leftNumberInputs.querySelectorAll("input").forEach((inp, i) => { inp.value = leftNumbers[i]; });
+    }
+
+    function buildAdminNumberInputs() {
+      topNumberInputs.innerHTML = "";
+      leftNumberInputs.innerHTML = "";
+      for (let i = 0; i < 10; i++) {
+        const topInp = document.createElement("input");
+        topInp.type = "text";
+        topInp.maxLength = 2;
+        topInp.placeholder = String(i);
+        topInp.value = topNumbers[i];
+        topInp.dataset.idx = String(i);
+        topInp.addEventListener("input", (e) => {
+          const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+          e.target.value = v;
+          topNumbers[Number(e.target.dataset.idx)] = v === "" ? "0" : v;
+          renderHeaderNumbers();
+        });
+        topNumberInputs.appendChild(topInp);
+
+        const leftInp = document.createElement("input");
+        leftInp.type = "text";
+        leftInp.maxLength = 2;
+        leftInp.placeholder = String(i);
+        leftInp.value = leftNumbers[i];
+        leftInp.dataset.idx = String(i);
+        leftInp.addEventListener("input", (e) => {
+          const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+          e.target.value = v;
+          leftNumbers[Number(e.target.dataset.idx)] = v === "" ? "0" : v;
+          renderHeaderNumbers();
+        });
+        leftNumberInputs.appendChild(leftInp);
+      }
+    }
+
+    function submitReservation() {
+      if (selectedIndex === null) {
+        alert("Select a square first.");
+        return;
+      }
+
+      const name = nameInput.value.trim();
+      const phone = phoneInput.value.replace(/\D/g, "").slice(0, 10);
+
+      if (!name) {
+        alert("Please enter your name.");
+        nameInput.focus();
+        return;
+      }
+      if (phone.length !== 10) {
+        alert("Phone number must be exactly 10 digits.");
+        phoneInput.focus();
+        return;
+      }
+
+      if (reservations[selectedIndex]) {
+        alert("That square was just reserved. Pick another one.");
+        closeModal();
+        return;
+      }
+
+      reservations[selectedIndex] = { name, phone };
+      renderSquare(selectedIndex);
+      if (typeof renderReservationsTable === "function") renderReservationsTable();
+      closeModal();
+      safeConfetti();
+    }
+
+    adminBtn.addEventListener("click", () => {
+      const pass = adminPassEl.value;
+      if (pass === ADMIN_PASSWORD) {
+        setAdminUI(true);
+        alert("Admin mode activated.");
+      } else {
+        alert("Wrong password.");
+      }
+    });
+
+    adminLogoutBtn.addEventListener("click", () => {
+      setAdminUI(false);
+      alert("Logged out.");
+    });
+
+    const resetModalOverlay = document.getElementById("resetModalOverlay");
+    const resetCancelBtn = document.getElementById("resetCancelBtn");
+    const resetConfirmBtn = document.getElementById("resetConfirmBtn");
+
+    resetBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!isAdmin) return;
+      resetModalOverlay.style.display = "flex";
+    });
+
+    const resetCloseXBtn = document.getElementById("resetCloseXBtn");
+
+    resetCancelBtn.addEventListener("click", () => {
+      resetModalOverlay.style.display = "none";
+    });
+
+    resetCloseXBtn.addEventListener("click", () => {
+      resetModalOverlay.style.display = "none";
+    });
+
+
+    resetConfirmBtn.addEventListener("click", () => {
+      for (let i = 0; i < 100; i++) delete reservations[i];
+      renderAllSquares();
+      if (typeof renderReservationsTable === "function") renderReservationsTable();
+      resetModalOverlay.style.display = "none";
+      alert("The entire board has been erased. All squares are now available.");
+    });
+
+    function populateTeamSelects(){
+      const makeOptions = (teams) => teams.map(t => {
+        const opt = document.createElement("option");
+        opt.value = t.key;
+        opt.textContent = t.name;
+        return opt;
+      });
+
+      afcSelect.innerHTML = "";
+      nfcSelect.innerHTML = "";
+      makeOptions(AFC_TEAMS).forEach(o => afcSelect.appendChild(o));
+      makeOptions(NFC_TEAMS).forEach(o => nfcSelect.appendChild(o));
+    }
+
+    afcSelect.addEventListener("change", () => {
+      afcTeamKey = afcSelect.value;
+      renderTeams();
+    });
+
+    nfcSelect.addEventListener("change", () => {
+      nfcTeamKey = nfcSelect.value;
+      renderTeams();
+    });
+
+    document.getElementById("randomizeNumbersBtn").addEventListener("click", () => {
+      if (!isAdmin) return;
+      randomizeNumbers();
+      alert("Numbers randomized!");
+    });
+
+    const reservationsTableBody = document.getElementById("reservationsTableBody");
+    const reservationsTable = document.getElementById("reservationsTable");
+    const reservationsEmpty = document.getElementById("reservationsEmpty");
+
+    function renderReservationsTable() {
+      const entries = [];
+      for (let i = 0; i < 100; i++) {
+        if (reservations[i]) entries.push({ square: i, ...reservations[i] });
+      }
+      if (entries.length === 0) {
+        reservationsTable.style.display = "none";
+        reservationsEmpty.classList.add("visible");
+        return;
+      }
+      reservationsTable.style.display = "table";
+      reservationsEmpty.classList.remove("visible");
+      const byPerson = {};
+      entries.forEach(e => {
+        const key = e.name + "|" + e.phone;
+        if (!byPerson[key]) byPerson[key] = { name: e.name, phone: e.phone, squares: [] };
+        byPerson[key].squares.push(e.square);
+      });
+      const people = Object.values(byPerson).sort((a, b) => a.name.localeCompare(b.name));
+      reservationsTableBody.innerHTML = people.map(p => {
+        const squaresSorted = p.squares.sort((a,b)=>a-b);
+        const squaresStr = squaresSorted.join(", ");
+        const phoneFormatted = p.phone.replace(/(\d{3})(\d{3})(\d{4})/, "($1) $2-$3");
+        const dataSquares = JSON.stringify(squaresSorted);
+        return `<tr data-squares="${escapeAttr(dataSquares)}"><td>${escapeHtml(p.name)}</td><td>${phoneFormatted}</td><td>${squaresStr}</td><td>${p.squares.length}</td></tr>`;
+      }).join("");
+      reservationsTableBody.querySelectorAll("tr").forEach(tr => {
+        tr.addEventListener("click", () => handleReservationRowClick(tr));
+      });
+    }
+
+    function escapeAttr(s) {
+      return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    const playerModalOverlay = document.getElementById("playerModalOverlay");
+    const playerModalContent = document.getElementById("playerModalContent");
+    const playerModalCloseX = document.getElementById("playerModalCloseX");
+    const playerModalCancel = document.getElementById("playerModalCancel");
+    const playerModalDelete = document.getElementById("playerModalDelete");
+
+    let playerModalSquares = [];
+
+    function openPlayerModal(tr) {
+      let squaresToDelete;
+      try {
+        squaresToDelete = JSON.parse(tr.dataset.squares || "[]");
+      } catch (e) { return; }
+      if (!Array.isArray(squaresToDelete) || squaresToDelete.length === 0) return;
+      playerModalSquares = squaresToDelete;
+      const cells = tr.querySelectorAll("td");
+      const name = cells[0] ? cells[0].textContent : "";
+      const phone = cells[1] ? cells[1].textContent : "";
+      const squaresStr = cells[2] ? cells[2].textContent : squaresToDelete.join(", ");
+      playerModalContent.innerHTML = `<strong>${escapeHtml(name)}</strong><br>Phone: ${escapeHtml(phone)}<br>Squares: ${squaresStr}<br><br>Delete this player to remove them from the reservation list and reset their square(s).`;
+      playerModalOverlay.style.display = "flex";
+    }
+
+    function closePlayerModal() {
+      playerModalOverlay.style.display = "none";
+      playerModalSquares = [];
+    }
+
+    function handleReservationRowClick(tr) {
+      if (!isAdmin) return;
+      openPlayerModal(tr);
+    }
+
+    function deletePlayerFromReservations() {
+      const squaresToDelete = playerModalSquares;
+      if (!Array.isArray(squaresToDelete) || squaresToDelete.length === 0) {
+        closePlayerModal();
+        return;
+      }
+      squaresToDelete.forEach(i => { delete reservations[i]; });
+      squaresToDelete.forEach(i => { renderSquare(i); });
+      renderReservationsTable();
+      closePlayerModal();
+    }
+
+    playerModalCloseX.addEventListener("click", closePlayerModal);
+    playerModalCancel.addEventListener("click", closePlayerModal);
+
+    playerModalDelete.addEventListener("click", (e) => {
+      e.preventDefault();
+      const warning = "This will remove the player from the reservation list and reset their square(s). This cannot be undone. Proceed?";
+      if (!confirm(warning)) return;
+      deletePlayerFromReservations();
+    });
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    cancelBtn.addEventListener("click", closeModal);
+    closeXBtn.addEventListener("click", closeModal);
+    submitBtn.addEventListener("click", submitReservation);
+
+    document.addEventListener("keydown", (e) => {
+      if (modalOverlay.style.display === "flex" && e.key === "Enter") {
+        submitReservation();
+      }
+    });
+
+    phoneInput.addEventListener("input", enforcePhoneDigitsMax10);
+    phoneInput.addEventListener("paste", () => setTimeout(enforcePhoneDigitsMax10, 0));
+
+    populateTeamSelects();
+    buildAdminNumberInputs();
+    renderTeams();
+    buildGrid();
+    setAdminUI(false);
+  </script>
+</body>
+</html>
